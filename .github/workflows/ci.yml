@@ -71,7 +71,7 @@ jobs:
           flask db upgrade
           flask db downgrade base
           flask db upgrade
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results
