@@ -1,0 +1,5 @@
+# Replace @your-github-org/* with real teams or users.
+*                       @your-github-org/app-team
+/infra/                 @your-github-org/platform-team
+/deploy/                @your-github-org/platform-team
+/.github/workflows/     @your-github-org/platform-team

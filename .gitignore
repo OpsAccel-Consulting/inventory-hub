@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+junit.xml
+htmlcov/
+instance/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+plan.txt
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+.terraform.tfstate.lock.info
+# Commit .terraform.lock.hcl once generated (pins provider versions)
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

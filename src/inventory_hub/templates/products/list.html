@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Products{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Products</h1>
+  <a class="btn btn-primary" href="{{ url_for('web.new_product') }}">+ Add product</a>
+</div>
+
+<form class="filters" method="get">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search name or SKU">
+  <select name="category_id">
+    <option value="">All categories</option>
+    {% for c in categories %}
+    <option value="{{ c.id }}" {{ 'selected' if c.id == category_id }}>{{ c.name }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn" type="submit">Filter</button>
+</form>
+
+<section class="card">
+  {% if page.items %}
+  <table class="table">
+    <thead>
+      <tr><th>SKU</th><th>Name</th><th>Category</th><th class="num">Price</th><th class="num">Qty</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for p in page.items %}
+      <tr>
+        <td class="mono">{{ p.sku }}</td>
+        <td>{{ p.name }}</td>
+        <td>{{ p.category.name if p.category else "—" }}</td>
+        <td class="num">₹{{ "{:,.2f}".format(p.price) }}</td>
+        <td class="num">
+          <span class="pill {{ 'pill-warn' if p.is_low_stock(threshold) else 'pill-ok' }}">{{ p.quantity }}</span>
+        </td>
+        <td class="actions">
+          <a href="{{ url_for('web.edit_product', product_id=p.id) }}">Edit</a>
+          <form method="post" action="{{ url_for('web.delete_product', product_id=p.id) }}" class="inline" data-confirm="Delete {{ p.sku }}?">
+            <button type="submit" class="link-danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if page.pages > 1 %}
+  <nav class="pager">
+    {% if page.has_prev %}<a href="{{ url_for('web.products', page=page.prev_num, q=q, category_id=category_id) }}">← Prev</a>{% endif %}
+    <span>Page {{ page.page }} of {{ page.pages }}</span>
+    {% if page.has_next %}<a href="{{ url_for('web.products', page=page.next_num, q=q, category_id=category_id) }}">Next →</a>{% endif %}
+  </nav>
+  {% endif %}
+  {% else %}
+  <p class="muted">No products found.</p>
+  {% endif %}
+</section>
+{% endblock %}

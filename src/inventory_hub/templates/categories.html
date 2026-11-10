@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Categories{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Categories</h1></div>
+
+<div class="grid-2 align-start">
+  <section class="card">
+    {% if categories %}
+    <table class="table">
+      <thead><tr><th>Name</th><th>Description</th><th class="num">Products</th></tr></thead>
+      <tbody>
+        {% for c in categories %}
+        <tr>
+          <td><a href="{{ url_for('web.products', category_id=c.id) }}">{{ c.name }}</a></td>
+          <td class="muted">{{ c.description or "—" }}</td>
+          <td class="num">{{ c.products.count() }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No categories yet.</p>
+    {% endif %}
+  </section>
+
+  <form class="card form" method="post" novalidate>
+    <h2>Add category</h2>
+    <label class="field {{ 'has-error' if errors.get('name') }}">
+      <span>Name</span>
+      <input name="name" value="{{ form.get('name', '') }}">
+      {% if errors.get('name') %}<small class="error">{{ errors['name'] }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span>Description</span>
+      <input name="description" value="{{ form.get('description', '') }}">
+    </label>
+    <button class="btn btn-primary" type="submit">Add category</button>
+  </form>
+</div>
+{% endblock %}

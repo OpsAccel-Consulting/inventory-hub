@@ -1,0 +1,148 @@
+name: Deploy
+
+# main -> test -> build & push to ECR -> deploy to EKS (dev) -> smoke test
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "migrations/**"
+      - "deploy/k8s/**"
+      - "Dockerfile"
+      - "gunicorn.conf.py"
+      - "requirements.txt"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false # never interrupt a rollout half-way
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+  K8S_NAMESPACE: inventory-hub
+  OVERLAY: deploy/k8s/overlays/dev
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build & push image
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC -> AWS
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - id: meta
+        run: echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.meta.outputs.tag }}
+          build-args: APP_VERSION=${{ steps.meta.outputs.tag }}
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Wait for ECR scan and report findings
+        run: |
+          aws ecr wait image-scan-complete \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-id imageTag=${{ steps.meta.outputs.tag }} || true
+          aws ecr describe-image-scan-findings \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-id imageTag=${{ steps.meta.outputs.tag }} \
+            --query 'imageScanFindings.findingSeverityCounts' --output table || true
+
+  deploy:
+    name: Deploy to EKS (dev)
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: dev
+      url: ${{ steps.smoke.outputs.url }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Configure kubectl
+        run: aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
+
+      - name: Render config from SSM Parameter Store
+        run: ./scripts/render-app-env.sh dev "$IMAGE_TAG" > "$OVERLAY/app.env"
+
+      - name: Pin image
+        working-directory: ${{ env.OVERLAY }}
+        run: kustomize edit set image "inventory-hub=${{ steps.ecr.outputs.registry }}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+      - name: Apply manifests
+        run: kubectl apply -k "$OVERLAY"
+
+      - name: Wait for rollout
+        id: rollout
+        run: kubectl -n "$K8S_NAMESPACE" rollout status deployment/inventory-hub --timeout=6m
+
+      - name: Roll back on failure
+        if: failure() && steps.rollout.outcome == 'failure'
+        run: |
+          echo "::error::Rollout failed - collecting diagnostics and rolling back"
+          kubectl -n "$K8S_NAMESPACE" get pods -o wide
+          kubectl -n "$K8S_NAMESPACE" describe deployment inventory-hub | tail -40
+          kubectl -n "$K8S_NAMESPACE" logs -l app.kubernetes.io/component=web --all-containers --tail=50 || true
+          kubectl -n "$K8S_NAMESPACE" rollout undo deployment/inventory-hub
+          kubectl -n "$K8S_NAMESPACE" rollout status deployment/inventory-hub --timeout=5m
+
+      - name: Smoke test
+        id: smoke
+        run: |
+          HOST=$(./scripts/wait-for-ingress.sh "$K8S_NAMESPACE" inventory-hub)
+          echo "url=http://${HOST}" >> "$GITHUB_OUTPUT"
+          ./scripts/smoke-test.sh "http://${HOST}" "$IMAGE_TAG"
+
+      - name: Summary
+        if: success()
+        run: |
+          {
+            echo "### Deployed \`${IMAGE_TAG}\` to dev"
+            echo ""
+            echo "URL: ${{ steps.smoke.outputs.url }}"
+          } >> "$GITHUB_STEP_SUMMARY"

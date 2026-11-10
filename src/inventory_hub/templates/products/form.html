@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit product' if mode == 'edit' else 'New product' }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'Edit ' ~ product.sku if mode == 'edit' else 'New product' }}</h1>
+  <a class="btn" href="{{ url_for('web.products') }}">Cancel</a>
+</div>
+
+<form class="card form" method="post" novalidate>
+  {% macro field(name, label, type='text', step=None) -%}
+  <label class="field {{ 'has-error' if errors.get(name) }}">
+    <span>{{ label }}</span>
+    <input type="{{ type }}" name="{{ name }}" value="{{ form.get(name, '') if form.get(name) is not none else '' }}" {% if step %}step="{{ step }}"{% endif %}>
+    {% if errors.get(name) %}<small class="error">{{ errors[name] }}</small>{% endif %}
+  </label>
+  {%- endmacro %}
+
+  <div class="grid-2">
+    {{ field('sku', 'SKU') }}
+    {{ field('name', 'Name') }}
+    {{ field('price', 'Price (₹)', 'number', '0.01') }}
+    {{ field('quantity', 'Quantity', 'number', '1') }}
+  </div>
+
+  <label class="field {{ 'has-error' if errors.get('category_id') }}">
+    <span>Category</span>
+    <select name="category_id">
+      <option value="">— None —</option>
+      {% for c in categories %}
+      <option value="{{ c.id }}" {{ 'selected' if form.get('category_id')|string == c.id|string }}>{{ c.name }}</option>
+      {% endfor %}
+    </select>
+    {% if errors.get('category_id') %}<small class="error">{{ errors['category_id'] }}</small>{% endif %}
+  </label>
+
+  <label class="field">
+    <span>Description</span>
+    <textarea name="description" rows="3">{{ form.get('description') or '' }}</textarea>
+  </label>
+
+  <button class="btn btn-primary" type="submit">{{ 'Save changes' if mode == 'edit' else 'Create product' }}</button>
+</form>
+{% endblock %}
