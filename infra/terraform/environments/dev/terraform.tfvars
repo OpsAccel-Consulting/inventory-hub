@@ -4,7 +4,7 @@ environment = "dev"
 region      = "ap-south-1"
 
 # >>> Change these to your GitHub org/user and repository <<<
-github_org  = "your-github-org"
+github_org  = "OpsAccel-Consulting"
 github_repo = "inventory-hub"
 
 # Set to false if the GitHub OIDC provider already exists in the account
