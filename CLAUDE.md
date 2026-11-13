@@ -75,9 +75,6 @@ Run these before saying a change is done. They mirror the CI jobs.
 ## Known issues / traps
 - `terraform fmt -check` fails today on `infra/terraform/modules/github-oidc/main.tf:18` (`provider_arn =var...`),
   so the validate job in `terraform.yml` fails on every infra PR until that's fixed.
-- Local machine is Windows. `make`, `ruff`, `pytest`, `kubectl`, `kustomize`, `docker` and `pre-commit` aren't on PATH
-  (only `terraform` and `python` are). The Makefile assumes `/bin/bash`. Run the underlying commands in
-  Git Bash from a venv, with `PYTHONPATH=src` and `FLASK_APP=inventory_hub.wsgi`.
 - A green `make test` only proves SQLite. The integration tests skip silently unless `TEST_DATABASE_URL` is Postgres,
   and CHECK constraints and `ilike` behave differently on Postgres.
 - Migrations run in the `migrate` initContainer on every rollout, and an automatic rollback does NOT undo them.
