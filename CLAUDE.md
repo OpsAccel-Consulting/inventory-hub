@@ -67,7 +67,7 @@ Run these before saying a change is done. They mirror the CI jobs.
 ## Workflow
 - ALWAYS plan first: list the files you'll touch and how you'll verify, then wait for my OK.
 - One logical change per PR. Don't make drive-by fixes; list them as follow-ups.
-- ALWAYS work on a branch (`feat/`, `fix/`, `chore/`). NEVER commit or push to `main`.
+- ALWAYS work on a branch (`feat/`, `fix/`, `chore/`, `docs/`). NEVER commit or push to `main`.
 - Fill in `.github/pull_request_template.md`. Infra PRs: the Terraform plan in the PR is the review artifact.
 - When I correct you on something specific to this repo, propose a one-line addition to this file and show
   it to me. Don't edit CLAUDE.md without my approval.
