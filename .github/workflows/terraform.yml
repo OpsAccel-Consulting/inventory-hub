@@ -1,0 +1,109 @@
+name: Terraform
+
+# PR touching infra  -> fmt + validate + plan (plan shown in the job summary)
+# Manual dispatch    -> plan + apply, gated by the "infra-dev" environment
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/terraform.yml"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "plan or apply"
+        type: choice
+        options: [plan, apply]
+        default: plan
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-dev
+  cancel-in-progress: false
+
+env:
+  TF_VERSION: "~1.13.0"
+  TF_IN_AUTOMATION: "true"
+  WORKDIR: infra/terraform/environments/dev
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  validate:
+    name: fmt & validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: terraform fmt
+        run: terraform fmt -check -recursive infra/terraform
+      - name: terraform validate
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+  plan:
+    name: Plan
+    needs: validate
+    if: github.event_name == 'pull_request' || inputs.action == 'plan'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: terraform init
+        working-directory: ${{ env.WORKDIR }}
+        run: terraform init -input=false -backend-config=backend.hcl -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      - name: terraform plan
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          terraform plan -input=false -no-color -lock-timeout=5m -out=tfplan | tee plan.txt
+          {
+            echo "### Terraform plan (dev)"
+            echo '```'
+            grep -E '^(Plan:|No changes|  # )' plan.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  apply:
+    name: Apply
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+    runs-on: ubuntu-latest
+    environment: infra-dev # configure a required reviewer on this environment
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: terraform init
+        working-directory: ${{ env.WORKDIR }}
+        run: terraform init -input=false -backend-config=backend.hcl -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      - name: terraform apply
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          terraform plan -input=false -no-color -lock-timeout=5m -out=tfplan
+          terraform apply -input=false -no-color tfplan

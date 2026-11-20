@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Dashboard</h1>
+  <a class="btn btn-primary" href="{{ url_for('web.new_product') }}">+ Add product</a>
+</div>
+
+<section class="stats">
+  <div class="stat"><span class="stat-label">Products</span><span class="stat-value">{{ summary.total_products }}</span></div>
+  <div class="stat"><span class="stat-label">Units in stock</span><span class="stat-value">{{ summary.total_units }}</span></div>
+  <div class="stat"><span class="stat-label">Inventory value</span><span class="stat-value">₹{{ "{:,.2f}".format(summary.total_value|float) }}</span></div>
+  <div class="stat"><span class="stat-label">Categories</span><span class="stat-value">{{ summary.category_count }}</span></div>
+</section>
+
+<section class="card">
+  <h2>Low stock <small>(≤ {{ summary.low_stock_threshold }} units)</small></h2>
+  {% if summary.low_stock %}
+  <table class="table">
+    <thead><tr><th>SKU</th><th>Name</th><th>Category</th><th class="num">Qty</th><th></th></tr></thead>
+    <tbody>
+      {% for p in summary.low_stock %}
+      <tr>
+        <td class="mono">{{ p.sku }}</td>
+        <td>{{ p.name }}</td>
+        <td>{{ p.category or "—" }}</td>
+        <td class="num"><span class="pill pill-warn">{{ p.quantity }}</span></td>
+        <td class="actions"><a href="{{ url_for('web.edit_product', product_id=p.id) }}">Restock</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">All products are above the low-stock threshold.</p>
+  {% endif %}
+</section>
+{% endblock %}

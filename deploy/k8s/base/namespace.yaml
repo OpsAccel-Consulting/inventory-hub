@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: inventory-hub
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+    # The AWS Load Balancer Controller adds a readiness gate to new pods: a pod only
+    # counts as Ready once the ALB reports its target healthy, so rollouts and the
+    # PodDisruptionBudget track real ALB capacity. Applies to pods created after this.
+    elbv2.k8s.aws/pod-readiness-gate-inject: enabled

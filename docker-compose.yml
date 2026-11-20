@@ -1,0 +1,47 @@
+# Local development stack: app + PostgreSQL.
+#   docker compose up --build
+#   open http://localhost:8000
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: inventory
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d inventory"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build: .
+    command: ["sh", "-c", "flask db upgrade && flask seed"]
+    environment: &app_env
+      APP_ENV: development
+      ENV_NAME: local
+      LOG_JSON: "false"
+      DATABASE_URL: postgresql+psycopg2://app:app@db:5432/inventory
+      SECRET_KEY: local-dev-only
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      args:
+        APP_VERSION: local
+    environment: *app_env
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
