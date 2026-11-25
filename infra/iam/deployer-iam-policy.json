@@ -31,14 +31,14 @@
       ],
       "Resource": "arn:aws:iam::*:role/inventory-hub-*",
       "Condition": {
-        "ArnEquals": {
+        "ArnLike": {
           "iam:PolicyARN": [
             "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
             "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
             "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
             "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly",
             "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
-            "arn:aws:iam::aws:policy/AdministratorAccess"
+            "arn:aws:iam::*:policy/InventoryHubDeployer-*"
           ]
         }
       }
