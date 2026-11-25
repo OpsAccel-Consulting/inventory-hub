@@ -32,6 +32,10 @@ kubectl -n inventory-hub get pods,svc,ingress
 
 **Deploy job fails at "Configure kubectl" with `Unauthorized`.** The deploy role has no EKS access entry. Re-run `terraform apply`.
 
+**`make env-up` / `env-down` stops with `AccessDenied ... not authorized to perform: <action>`** (running as `inventory-deployer`). The deployer policy is missing that action. Add it to `infra/iam/deployer-*-policy.json`, publish a new policy version and re-run. See [deployer-access.md](deployer-access.md#6-when-something-is-denied).
+
+**kubectl returns `Unauthorized` on your machine.** Your profile isn't the identity that created the cluster and has no access entry. Use the profile that ran `env-up`, or add your ARN to `cluster_admin_arns`.
+
 ## Draining a node (instance-type change, AMI or Kubernetes upgrade)
 
 Only one AWS Load Balancer Controller replica is active at a time: the one holding the leader lease. If you drain the node that runs it, the other replica takes over after the lease expires (about 15 seconds) and a reconcile. Until then nobody deregisters the app pods being evicted from that node, so the ALB can keep sending requests to them. The app's 30-second `preStop` covers this window, but moving the leader first removes the risk.
