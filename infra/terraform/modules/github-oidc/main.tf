@@ -10,6 +10,7 @@
 # -----------------------------------------------------------------------------
 
 data "aws_partition" "current" {}
+data "aws_caller_identity" "current" {}
 
 locals {
   partition    = data.aws_partition.current.partition
@@ -130,9 +131,11 @@ resource "aws_iam_role" "terraform" {
   tags                 = var.tags
 }
 
-# TODO: AdministratorAccess is broader than needed. Replace with a
-# least-privilege policy (or a permissions boundary).
-resource "aws_iam_role_policy_attachment" "terraform" {
+# Project-scoped permissions for the pipeline: the same customer-managed
+# policies the inventory-deployer user has. They are created outside Terraform
+# (infra/iam/*.json, AWS CloudShell), so the pipeline can't edit its own permissions.
+resource "aws_iam_role_policy_attachment" "terraform_project" {
+  for_each   = toset(["InventoryHubDeployer-IAM", "InventoryHubDeployer-Infra"])
   role       = aws_iam_role.terraform.name
-  policy_arn = "arn:${local.partition}:iam::aws:policy/AdministratorAccess"
+  policy_arn = "arn:${local.partition}:iam::${data.aws_caller_identity.current.account_id}:policy/${each.value}"
 }

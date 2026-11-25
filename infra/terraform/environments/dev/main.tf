@@ -83,16 +83,16 @@ module "aws_load_balancer_controller" {
 module "rds" {
   source = "../../modules/rds-postgres"
 
-  identifier                 = local.name
-  vpc_id                     = module.network.vpc_id
-  subnet_ids                 = module.network.database_subnet_ids
-  allowed_security_groups    = { eks = module.eks.cluster_security_group_id }
-  engine_version             = var.db_engine_version
-  instance_class             = var.db_instance_class
-  multi_az                   = var.db_multi_az
-  deletion_protection        = var.db_deletion_protection
-  skip_final_snapshot        = var.db_skip_final_snapshot
-  apply_immediately          = true
+  identifier              = local.name
+  vpc_id                  = module.network.vpc_id
+  subnet_ids              = module.network.database_subnet_ids
+  allowed_security_groups = { eks = module.eks.cluster_security_group_id }
+  engine_version          = var.db_engine_version
+  instance_class          = var.db_instance_class
+  multi_az                = var.db_multi_az
+  deletion_protection     = var.db_deletion_protection
+  skip_final_snapshot     = var.db_skip_final_snapshot
+  apply_immediately       = true
 }
 
 # ---------- Application secrets & identity ----------
