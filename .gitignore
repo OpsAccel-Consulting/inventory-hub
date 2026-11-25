@@ -38,3 +38,4 @@ backend.local.hcl
 .vscode/
 .DS_Store
 Thumbs.db
+*:Zone.Identifier

@@ -57,6 +57,7 @@ A realistic sample service for learning cloud delivery end to end: a Flask web a
 ├── deploy/k8s/
 │   ├── base/                   # Deployment, Service, Ingress, PDB, SA, Namespace
 │   └── overlays/dev/           # env-specific config (app.env rendered by CI)
+├── infra/iam/                  # least-privilege policies for the inventory-deployer user
 ├── infra/terraform/
 │   ├── bootstrap/              # one-time: state bucket
 │   ├── modules/                # network, eks, rds-postgres, ecr, github-oidc,
@@ -133,13 +134,31 @@ The deploy job prints the ALB URL in its summary. Open it to see the dashboard. 
 Once the one-time setup above is done, two commands rebuild or remove the whole dev environment. Both mask the AWS account ID in their output, so they are safe to record.
 
 ```bash
-export AWS_PROFILE=<your-admin-profile>      # sign in first if needed: aws login --profile <profile>
+export AWS_PROFILE=inventory-deployer        # or your admin profile; sign in first: aws login --profile <profile>
 make env-up      # plan → confirm → apply (~25 min) → Deploy workflow → kubectl → seed demo data
                  #   → restrict the load balancer to your IP → print the app URL
 make env-down    # confirm → delete the app namespace (removes the ALB) → plan → confirm → destroy
 ```
 
 Options: `./scripts/env-up.sh --help` (for example `--no-seed`, `--no-ip-restrict`). The Terraform state bucket is kept between rebuilds; `configure-github.sh` does not need to run again.
+
+### Least-privilege deployer (recommended)
+
+You don't need an admin profile for day-to-day runs. Create an IAM user, `inventory-deployer`, with the two project policies in [`infra/iam/`](infra/iam) and sign in with `aws login` (no access keys):
+
+```bash
+# as the admin profile, once
+aws iam create-policy --policy-name InventoryHubDeployer-IAM   --policy-document file://infra/iam/deployer-iam-policy.json
+aws iam create-policy --policy-name InventoryHubDeployer-Infra --policy-document file://infra/iam/deployer-infra-policy.json
+aws iam create-user  --user-name inventory-deployer
+#   attach both policies + arn:aws:iam::aws:policy/SignInLocalDevelopmentAccess,
+#   then enable console access and MFA for the user
+
+# on your machine
+aws login --profile inventory-deployer
+```
+
+Full steps, including handling `AccessDenied` and removing the user: [docs/deployer-access.md](docs/deployer-access.md).
 
 ## 3. Ship a change
 
@@ -171,4 +190,5 @@ Full endpoint list: [`src/inventory_hub/api/routes.py`](src/inventory_hub/api/ro
 
 - [docs/architecture.md](docs/architecture.md): design and request flow
 - [docs/runbook.md](docs/runbook.md): operating and troubleshooting
+- [docs/deployer-access.md](docs/deployer-access.md): least-privilege IAM user for `env-up` / `env-down`
 - [docs/adr/](docs/adr/): architecture decision records
